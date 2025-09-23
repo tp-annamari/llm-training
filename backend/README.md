@@ -1,66 +1,99 @@
----
-version: 1.0
-author: Rolland Palffy (palffy.rolland@codespring.ro)
-reviewers:
-    - Laszlo Barabasi (Laszlo Barabas (barabas.laszlo@codespring.ro)
----
+# FastAPI Template
 
-# Python Delicacies Training
+A simple FastAPI template with database integration using SQLAlchemy and SQLite.
 
-![Python Logo](img/python-logo.png)
+## Features
 
-A collection of Python notebooks to explore some of the language's core concepts and more *delicate* features. These interactive Jupyter Notebooks cover practical examples and exercises that should help deepen your Python knowledge through hands-on practice.
+- FastAPI web framework
+- SQLAlchemy ORM with SQLite database, using async engine
+- Pydantic models for data validation
+- User management endpoints
+- Environment configuration with python-dotenv
+- Development dependencies for testing and code formatting
 
-## Overview
+## Installation
 
-### Python Exercises
+This project uses `uv` for dependency management. Make sure you have `uv` installed:
 
-Interactive coding challenges and games to practice fundamental Python concepts:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-- **Control Flow**: Number guessing games demonstrating loops, conditionals, and user input handling
-- **Data Structures**: Hangman and Capitals Quiz games showcasing lists, dictionaries, and string manipulation
-- **Practical Exercises**: Real-world programming challenges including binary search implementation and calculator creation
+Install dependencies:
 
-### Python Intro
+```bash
+uv sync
+```
 
-Foundation concepts and Python philosophy:
+## Running the Application
 
-- **Learning Resources**: Curated list of official documentation and quality learning materials
-- **Python 2 vs Python 3**: Important differences and migration considerations
-- **Zen of Python**: Guiding principles for Python design
-- **Basic Types**: Strings with f-string formatting, functions with variadic arguments, and numeric types
+### Development Mode (with auto-reload)
 
-### Data Structures
+```bash
+uv run uvicorn main:app --reload
+```
 
-Comprehensive coverage of Python's built-in data structures:
+### Production Mode
 
-- **Lists**: Mutable sequences, list comprehensions, and advanced manipulation techniques
-- **Iterators**: Lazy evaluation, generator expressions, and functional programming concepts
-- **Tuples**: Immutable sequences, unpacking, and multiple return values
-- **Sets**: Unique collections, set comprehensions, and mathematical operations
-- **Dictionaries**: Key-value mappings, dict comprehensions, and dynamic views
-- **Slicing**: Advanced indexing techniques for sequence manipulation
+```bash
+uv run uvicorn main:app --host 0.0.0.0 --port 8000
+```
 
-### Classes, Types, and Decorators
+The application will be available at `http://localhost:8000`
 
-Object-oriented programming and advanced Python features:
+## API Endpoints
 
-- **Classes**: Object construction, inheritance, and multiple inheritance patterns
-- **Dunder Methods**: Magic methods for operator overloading and built-in function integration
-- **Type Hints**: Static type annotations for better code documentation and tooling support
-- **Decorators**: Function and class decorators, including custom decorator creation and decorator factories
+- `GET /` - Welcome message
+- `POST /users/` - Create a new user
+- `GET /users/` - Get all users
 
-### Files and Asynchronous I/O
+## Example Usage
 
-File operations and concurrent programming:
+### Create a user
 
-- **File Operations**: Reading and writing text and binary files with proper resource management
-- **Context Managers**: Proper resource handling with the `with` statement
-- **Asynchronous Programming**: `async`/`await` syntax, coroutines, and concurrent execution
-- **Async I/O Patterns**: TaskGroups, async generators, background tasks, and async iteration
+```bash
+curl -X POST "http://localhost:8000/users/" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "John Doe", "email": "john@example.com"}'
+```
 
-## Prerequisites
+### Get all users
 
-- Basic programming knowledge
-- Python 3.8+ installed
-- Jupyter Notebook environment
+```bash
+curl -X GET "http://localhost:8000/users/"
+```
+
+## Configuration
+
+Create a `.env` file in the project root to customize settings:
+
+```env
+APP_NAME=My FastAPI App
+DATABASE_URL=sqlite+aiosqlite:///./app.db
+DEBUG=true
+```
+
+## Database
+
+The application uses SQLite by default, using the aiosqlite engine. The database file (`app.db`) will be created automatically when you first run the application.
+
+## Development
+
+Run tests:
+
+```bash
+uv run pytest
+```
+
+Format code:
+
+```bash
+uv run black .
+uv run isort .
+```
+
+Lint code:
+
+```bash
+uv run flake8 .
+```
