@@ -2,14 +2,14 @@
 version: 1.0
 author: Rolland Palffy (palffy.rolland@codespring.ro)
 reviewers:
-  - Laszlo Barabasi (Laszlo Barabas (barabas.laszlo@codespring.ro)
+    - Laszlo Barabasi (Laszlo Barabas (barabas.laszlo@codespring.ro)
 ---
 
 # Python Delicacies Training
 
 ![Python Logo](img/python-logo.png)
 
-A collection of Python notebooks to explore some of the language's core concepts and more _delicate_ features. These interactive Jupyter Notebooks cover practical examples and exercises that should help deepen your Python knowledge through hands-on practice.
+A collection of Python notebooks to explore some of the language's core concepts and more *delicate* features. These interactive Jupyter Notebooks cover practical examples and exercises that should help deepen your Python knowledge through hands-on practice.
 
 ## Overview
 
