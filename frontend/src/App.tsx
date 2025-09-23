@@ -4,6 +4,7 @@ import { styled } from '@mui/system'
 import ProductList from './components/ProductList'
 import ProductToolbar from './components/ProductToolbar'
 import AddProductPage from './components/AddProductPage'
+import CartList from './components/CartList'
 import { getProducts } from './services/api'
 import { Product } from './types/product'
 
@@ -32,6 +33,7 @@ function App() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [isAddPageVisible, setIsAddPageVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [cartUpdateTrigger, setCartUpdateTrigger] = useState(0)
 
   const loadProducts = async () => {
     try {
@@ -80,7 +82,9 @@ function App() {
       <ProductList 
         products={filteredProducts} 
         onProductDeleted={loadProducts} 
+        onCartUpdated={() => setCartUpdateTrigger(prev => prev + 1)}
       />
+      <CartList key={cartUpdateTrigger} />
     </StyledContainer>
   )
 }
