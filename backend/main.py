@@ -1,15 +1,14 @@
 from contextlib import asynccontextmanager
 from typing import List
-
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from config import settings
-from database import Product, create_tables, get_db
-
-from fastapi.middleware.cors import CORSMiddleware
+from database import Product, CartItem, create_tables, get_db
 
 
 class ProductDTO(BaseModel):
@@ -20,10 +19,10 @@ class ProductDTO(BaseModel):
 
 
 class ProductUpdateDTO(BaseModel):
-    name: str
-    price: float
+    name: str | None = None
+    price: float | None = None
     description: str | None = None
-    stock: int
+    stock: int | None = None
 
 
 class ProductResponse(BaseModel):
@@ -37,6 +36,21 @@ class ProductResponse(BaseModel):
         from_attributes = True
 
 
+class CartItemDTO(BaseModel):
+    product_id: int
+    quantity: int
+
+
+class CartItemResponse(BaseModel):
+    id: int
+    product_id: int
+    quantity: int
+    product: ProductResponse
+
+    class Config:
+        from_attributes = True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
@@ -45,13 +59,22 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
+# Configure CORS
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8011",
+    "http://127.0.0.1:8011"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8011", "http://127.0.0.1:8011"],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
+    max_age=600
 )
 
 @app.get("/")
@@ -107,17 +130,20 @@ async def put_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product with given id not found")
 
-    # Check if the new name conflicts with another product
-    if product.name != productUpdateDTO.name:
+    # Only check name conflict if name is being updated
+    if productUpdateDTO.name is not None and product.name != productUpdateDTO.name:
         name_check = await db.execute(select(Product).filter(Product.name == productUpdateDTO.name))
         existing_product = name_check.first()
         if existing_product and existing_product[0].id != id:
             raise HTTPException(status_code=400, detail="Product with this name already exists")
+        product.name = productUpdateDTO.name
 
-    product.name = productUpdateDTO.name
-    product.price = productUpdateDTO.price
-    product.description = productUpdateDTO.description
-    product.stock = productUpdateDTO.stock
+    if productUpdateDTO.price is not None:
+        product.price = productUpdateDTO.price
+    if productUpdateDTO.description is not None:
+        product.description = productUpdateDTO.description
+    if productUpdateDTO.stock is not None:
+        product.stock = productUpdateDTO.stock
 
     await db.commit()
     await db.refresh(product)
@@ -134,6 +160,66 @@ async def delete_product(id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(db_product)
     await db.commit()
     return {"message": "Product deleted successfully"}
+
+
+@app.post("/cart/", response_model=CartItemResponse)
+async def add_to_cart(cart_item: CartItemDTO, db: AsyncSession = Depends(get_db)):
+    # Check if product exists and has enough stock
+    result = await db.execute(
+        select(Product).filter(Product.id == cart_item.product_id)
+    )
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if product.stock < cart_item.quantity:
+        raise HTTPException(status_code=400, detail="Not enough stock available")
+    
+    # Create cart item
+    db_cart_item = CartItem(
+        product_id=cart_item.product_id,
+        quantity=cart_item.quantity
+    )
+    
+    # Update product stock
+    product.stock -= cart_item.quantity
+    
+    db.add(db_cart_item)
+    await db.commit()
+    await db.refresh(db_cart_item)
+    
+    # Load the product relationship
+    await db.refresh(db_cart_item, ['product'])
+    return db_cart_item
+
+
+@app.get("/cart/", response_model=List[CartItemResponse])
+async def get_cart_items(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(CartItem).options(selectinload(CartItem.product))
+    )
+    cart_items = result.scalars().unique().all()
+    return cart_items
+
+
+@app.delete("/cart/{id}")
+async def remove_from_cart(id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CartItem).filter(CartItem.id == id))
+    cart_item = result.scalar_one_or_none()
+    
+    if not cart_item:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+    
+    # Restore product stock
+    product_result = await db.execute(select(Product).filter(Product.id == cart_item.product_id))
+    product = product_result.scalar_one_or_none()
+    if product:
+        product.stock += cart_item.quantity
+    
+    await db.delete(cart_item)
+    await db.commit()
+    return {"message": "Item removed from cart"}
 
 
 if __name__ == "__main__":
