@@ -196,10 +196,6 @@ async def add_to_cart(cart_item: CartItemDTO, db: AsyncSession = Depends(get_db)
             if product.stock < cart_item.quantity:
                 raise HTTPException(status_code=400, detail="Not enough stock available")
             
-            # Additional safety check to prevent negative stock
-            if product.stock - cart_item.quantity < 0:
-                raise HTTPException(status_code=400, detail="Not enough stock available")
-            
             # Reserve stock by decrementing it within the locked transaction
             product.stock -= cart_item.quantity
             
