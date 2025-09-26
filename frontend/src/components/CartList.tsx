@@ -57,7 +57,7 @@ export default function CartList({ onCartUpdated }: CartListProps) {
       sx={{
         position: 'fixed',
         bottom: 20,
-        right: 20,
+        left: 20,
         width: 320,
         maxHeight: '50vh',
         overflow: 'auto',
