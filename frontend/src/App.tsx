@@ -5,8 +5,9 @@ import ProductList from './components/ProductList'
 import ProductToolbar from './components/ProductToolbar'
 import AddProductPage from './components/AddProductPage'
 import CartList from './components/CartList'
-import { getProducts } from './services/api'
+import { getProducts, getCartItems } from './services/api'
 import { Product } from './types/product'
+import { CartItem } from './types/cart'
 
 const StyledContainer = styled(Container)`
   margin-top: 3rem;
@@ -34,6 +35,7 @@ function App() {
   const [isAddPageVisible, setIsAddPageVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [cartUpdateTrigger, setCartUpdateTrigger] = useState(0)
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
 
   const loadProducts = async () => {
     try {
@@ -42,6 +44,15 @@ function App() {
       setFilteredProducts(data)
     } catch (error) {
       console.error('Error loading products:', error)
+    }
+  }
+
+  const loadCartItems = async () => {
+    try {
+      const data = await getCartItems()
+      setCartItems(data)
+    } catch (error) {
+      console.error('Error loading cart items:', error)
     }
   }
 
@@ -57,6 +68,7 @@ function App() {
 
   useEffect(() => {
     loadProducts()
+    loadCartItems()
   }, [])
 
   if (isAddPageVisible) {
@@ -78,13 +90,24 @@ function App() {
       <ProductToolbar 
         onSearch={handleSearch}
         onAddClick={() => setIsAddPageVisible(true)}
+        cartItemCount={cartItems.length}
       />
       <ProductList 
         products={filteredProducts} 
         onProductDeleted={loadProducts} 
-        onCartUpdated={() => setCartUpdateTrigger(prev => prev + 1)}
+        onCartUpdated={() => {
+          setCartUpdateTrigger(prev => prev + 1)
+          loadProducts() // Reload products to show updated stock
+          loadCartItems() // Reload cart items
+        }}
       />
-      <CartList key={cartUpdateTrigger} />
+      <CartList 
+        key={cartUpdateTrigger} 
+        onCartUpdated={() => {
+          loadProducts()
+          loadCartItems()
+        }}
+      />
     </StyledContainer>
   )
 }

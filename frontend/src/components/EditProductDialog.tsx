@@ -11,7 +11,7 @@ import {
 } from '@mui/material'
 import { Close as CloseIcon } from '@mui/icons-material'
 import { styled } from '@mui/system'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Product, ProductUpdate } from '../types/product'
 import { updateProduct } from '../services/api'
 
@@ -98,9 +98,22 @@ const EditProductDialog = ({
   onProductUpdated,
 }: EditProductDialogProps) => {
   const [formData, setFormData] = useState<ProductUpdate>({
-    price: product?.price || 0,
-    stock: product?.stock || 0,
+    name: '',
+    price: 0,
+    description: '',
+    stock: 0,
   })
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name,
+        price: product.price,
+        description: product.description || '',
+        stock: product.stock,
+      })
+    }
+  }, [product])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,7 +132,7 @@ const EditProductDialog = ({
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: Number(value),
+      [name]: name === 'price' || name === 'stock' ? Number(value) : value,
     }))
   }
 
@@ -129,7 +142,7 @@ const EditProductDialog = ({
     <StyledDialog open={open} onClose={onClose} maxWidth="md">
       <form onSubmit={handleSubmit}>
         <DialogHeader>
-          <StyledDialogTitle variant="h5">Edit Product</StyledDialogTitle>
+          <StyledDialogTitle>Edit Product</StyledDialogTitle>
           <CloseButton onClick={onClose} aria-label="close">
             <CloseIcon />
           </CloseButton>
@@ -140,18 +153,28 @@ const EditProductDialog = ({
             <Typography variant="subtitle2" sx={{ color: '#666', mb: 0.5 }}>
               Product Name
             </Typography>
-            <Typography variant="h6">
-              {product.name}
-            </Typography>
+            <StyledTextField
+              fullWidth
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              sx={{ mt: 1 }}
+            />
           </Box>
 
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle2" sx={{ color: '#666', mb: 0.5 }}>
               Description
             </Typography>
-            <Typography variant="body1">
-              {product.description || 'No description available'}
-            </Typography>
+            <StyledTextField
+              fullWidth
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              multiline
+              rows={3}
+              sx={{ mt: 1 }}
+            />
           </Box>
 
           <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
@@ -165,6 +188,7 @@ const EditProductDialog = ({
               InputProps={{
                 startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
               }}
+              inputProps={{ min: 0, step: 0.01 }}
             />
 
             <StyledTextField
@@ -174,6 +198,7 @@ const EditProductDialog = ({
               type="number"
               value={formData.stock}
               onChange={handleChange}
+              inputProps={{ min: 0, step: 1 }}
             />
           </Box>
         </DialogContent>
