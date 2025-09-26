@@ -14,6 +14,8 @@ export interface ProductCreate {
 }
 
 export interface ProductUpdate {
+  name: string
   price: number
+  description: string
   stock: number
 }

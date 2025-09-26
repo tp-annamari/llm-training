@@ -4,8 +4,15 @@ import {
   TextField,
   InputAdornment,
   styled,
+  Badge,
+  IconButton,
+  Tooltip,
 } from '@mui/material'
-import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material'
+import { 
+  Add as AddIcon, 
+  Search as SearchIcon,
+  ShoppingCart as ShoppingCartIcon
+} from '@mui/icons-material'
 
 const ToolbarContainer = styled(Box)`
   display: flex;
@@ -48,12 +55,25 @@ const AddButton = styled(Button)`
   }
 `
 
+const CartButton = styled(IconButton)`
+  background-color: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 8px;
+  
+  &:hover {
+    background-color: #f5f5f5;
+    border-color: #1976d2;
+  }
+`
+
 interface ProductToolbarProps {
   onSearch: (query: string) => void
   onAddClick: () => void
+  cartItemCount?: number
 }
 
-const ProductToolbar = ({ onSearch, onAddClick }: ProductToolbarProps) => {
+const ProductToolbar = ({ onSearch, onAddClick, cartItemCount = 0 }: ProductToolbarProps) => {
   return (
     <ToolbarContainer>
       <SearchField
@@ -69,13 +89,24 @@ const ProductToolbar = ({ onSearch, onAddClick }: ProductToolbarProps) => {
           ),
         }}
       />
-      <AddButton
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={onAddClick}
-      >
-        Add Product
-      </AddButton>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {cartItemCount > 0 && (
+          <Tooltip title={`${cartItemCount} item${cartItemCount === 1 ? '' : 's'} in cart`}>
+            <Badge badgeContent={cartItemCount} color="primary">
+              <CartButton>
+                <ShoppingCartIcon />
+              </CartButton>
+            </Badge>
+          </Tooltip>
+        )}
+        <AddButton
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={onAddClick}
+        >
+          Add Product
+        </AddButton>
+      </Box>
     </ToolbarContainer>
   )
 }

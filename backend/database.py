@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Float, Integer, String
+from sqlalchemy import Column, Float, Integer, String, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 
 from config import settings
 
@@ -21,6 +21,16 @@ class Product(Base):
     price: float = Column(Float, index=True)
     description: str | None = Column(String, index=True, nullable=True)
     stock: int = Column(Integer, index=True)
+    cart_items = relationship("CartItem", back_populates="product", lazy="noload")
+
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    product_id: int = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"))
+    quantity: int = Column(Integer, default=1)
+    product = relationship("Product", back_populates="cart_items", lazy="joined")
 
 
 async def get_db():

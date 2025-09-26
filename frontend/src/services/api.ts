@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { Product, ProductCreate, ProductUpdate } from '../types/product'
+import type { CartItem, CartItemCreate } from '../types/cart'
 
 const API_URL = 'http://localhost:8011'
 
@@ -36,4 +37,18 @@ export const updateProduct = async (
 
 export const deleteProduct = async (id: number): Promise<void> => {
   await api.delete(`/products/${id}`)
+}
+
+export const getCartItems = async (): Promise<CartItem[]> => {
+  const response = await api.get('/cart/')
+  return response.data
+}
+
+export const addToCart = async (item: CartItemCreate): Promise<CartItem> => {
+  const response = await api.post('/cart/', item)
+  return response.data
+}
+
+export const removeFromCart = async (id: number): Promise<void> => {
+  await api.delete(`/cart/${id}`)
 }

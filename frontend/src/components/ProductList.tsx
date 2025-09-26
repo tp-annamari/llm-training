@@ -11,10 +11,11 @@ import {
   Delete as DeleteIcon, 
   Edit as EditIcon, 
   Visibility as ViewIcon,
-  EditNote as EditNoteIcon 
+  EditNote as EditNoteIcon,
+  AddShoppingCart as AddShoppingCartIcon
 } from '@mui/icons-material'
 import { Product } from '../types/product'
-import { deleteProduct } from '../services/api'
+import { deleteProduct, addToCart } from '../services/api'
 import { styled } from '@mui/system'
 import { useState } from 'react'
 import EditProductDialog from './EditProductDialog'
@@ -47,12 +48,22 @@ const PriceTypography = styled(Typography)`
 interface ProductListProps {
   products: Product[]
   onProductDeleted: () => void
+  onCartUpdated?: () => void
 }
 
-function ProductList({ products, onProductDeleted }: ProductListProps) {
+function ProductList({ products, onProductDeleted, onCartUpdated }: ProductListProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
+
+  const handleAddToCart = async (product: Product) => {
+    try {
+      await addToCart({ product_id: product.id, quantity: 1 })
+      onCartUpdated?.()
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+    }
+  }
   
   const handleDelete = async (product: Product) => {
     try {
@@ -120,6 +131,19 @@ function ProductList({ products, onProductDeleted }: ProductListProps) {
               padding: 2,
               gap: 1 
             }}>
+              <Button
+                size="small"
+                startIcon={<AddShoppingCartIcon />}
+                variant="contained"
+                color="primary"
+                disabled={product.stock <= 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddToCart(product);
+                }}
+              >
+                Add to Cart
+              </Button>
               <Button
                 size="small"
                 startIcon={<ViewIcon />}
