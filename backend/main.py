@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import List
+import logging
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -59,6 +60,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Enable GZip compression
 app.add_middleware(GZipMiddleware)
@@ -161,29 +168,60 @@ async def delete_product(id: int, db: AsyncSession = Depends(get_db)):
 
 @app.post("/cart/", response_model=CartItemResponse)
 async def add_to_cart(cart_item: CartItemDTO, db: AsyncSession = Depends(get_db)):
-    # Check if product exists and has enough stock
-    result = await db.execute(
-        select(Product).filter(Product.id == cart_item.product_id)
-    )
-    product = result.scalar_one_or_none()
+    # Use explicit transaction with pessimistic locking to prevent race conditions
+    async with db.begin():
+        try:
+            # Build select statement with conditional pessimistic locking based on database dialect
+            stmt = select(Product).filter(Product.id == cart_item.product_id)
+            
+            # Check database dialect and apply FOR UPDATE only if supported
+            # SQLite doesn't support row-level locking, but PostgreSQL, MySQL, MariaDB, Oracle do
+            # For SQLite, we rely on the transaction isolation to provide some protection
+            dialect_name = db.get_bind().dialect.name.lower()
+            if dialect_name in ('postgresql', 'mysql', 'mariadb', 'oracle'):
+                stmt = stmt.with_for_update()
+                logging.debug(f"Using pessimistic locking (FOR UPDATE) with {dialect_name} database")
+            else:
+                logging.debug(f"Skipping pessimistic locking for {dialect_name} database (not supported)")
+            
+            # Execute the statement (with or without FOR UPDATE based on dialect)
+            result = await db.execute(stmt)
+            product = result.scalar_one_or_none()
+            
+            if not product:
+                raise HTTPException(status_code=404, detail="Product not found")
+            
+            # Validate stock availability within the locked transaction
+            # This check must happen while the row is locked to prevent race conditions
+            if product.stock < cart_item.quantity:
+                raise HTTPException(status_code=400, detail="Not enough stock available")
+            
+            # Additional safety check to prevent negative stock
+            if product.stock - cart_item.quantity < 0:
+                raise HTTPException(status_code=400, detail="Not enough stock available")
+            
+            # Reserve stock by decrementing it within the locked transaction
+            product.stock -= cart_item.quantity
+            
+            # Create and add cart item only after stock is successfully reserved
+            db_cart_item = CartItem(
+                product_id=cart_item.product_id,
+                quantity=cart_item.quantity
+            )
+            db.add(db_cart_item)
+            
+            # Transaction will be committed automatically when exiting the context
+            # If any exception occurs, transaction will be rolled back automatically
+            
+        except HTTPException:
+            # Re-raise HTTP exceptions (they will trigger rollback)
+            raise
+        except Exception as e:
+            # Log unexpected errors and re-raise as internal server error
+            logging.error(f"Unexpected error in add_to_cart: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
     
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    if product.stock < cart_item.quantity:
-        raise HTTPException(status_code=400, detail="Not enough stock available")
-    
-    # Create cart item
-    db_cart_item = CartItem(
-        product_id=cart_item.product_id,
-        quantity=cart_item.quantity
-    )
-    
-    # Update product stock
-    product.stock -= cart_item.quantity
-    
-    db.add(db_cart_item)
-    await db.commit()
+    # Refresh the cart item to get the latest state after commit
     await db.refresh(db_cart_item)
     
     # Load the product relationship
@@ -208,12 +246,22 @@ async def remove_from_cart(id: int, db: AsyncSession = Depends(get_db)):
     if not cart_item:
         raise HTTPException(status_code=404, detail="Cart item not found")
     
-    # Restore product stock
+    # Restore product stock - handle edge case where product might have been deleted
     product_result = await db.execute(select(Product).filter(Product.id == cart_item.product_id))
     product = product_result.scalar_one_or_none()
-    if product:
-        product.stock += cart_item.quantity
     
+    if product:
+        # Product exists, restore the stock
+        product.stock += cart_item.quantity
+    else:
+        # Product was deleted after being added to cart - log this edge case for debugging/metrics
+        logging.warning(
+            f"Cannot restore stock for cart item {id}: "
+            f"Product {cart_item.product_id} no longer exists in database. "
+            f"Cart item will be removed but {cart_item.quantity} units cannot be restored to stock."
+        )
+    
+    # Always delete the cart item and commit, regardless of product existence
     await db.delete(cart_item)
     await db.commit()
     return {"message": "Item removed from cart"}
